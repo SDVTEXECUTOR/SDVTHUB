@@ -1,0 +1,57 @@
+-- SDVT SAB: Yes Vote Overlay + Teleport Safe
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+
+local TARGET_PLACE_ID = 126884695634066 -- Steal A Brainrot
+local SAFE_THRESHOLD = 5 -- Server ít người <=10 mới teleport, mô phỏng safe
+
+-- Overlay full màn hình
+local function mk(class, props)
+    local obj = Instance.new(class)
+    if props then for k,v in pairs(props) do pcall(function() obj[k]=v end) end
+    return obj
+end
+
+local screenGui = mk("ScreenGui",{Parent=player:WaitForChild("PlayerGui"), Name="VoteYesOverlay", ResetOnSpawn=false})
+local bg = mk("Frame",{Parent=screenGui, BackgroundColor3=Color3.new(0,0,0), Size=UDim2.new(1,0,1,0)})
+
+local percentLabel = mk("TextLabel",{Parent=bg, Size=UDim2.new(0,200,0,50), Position=UDim2.new(0.5,-100,0.5,-25), BackgroundTransparency=1, Font=Enum.Font.SourceSansBold, TextSize=36, TextColor3=Color3.fromRGB(255,255,255), Text="0%"})
+local logFrame = mk("Frame",{Parent=bg, Size=UDim2.new(0,300,0,160), Position=UDim2.new(0.5,-150,0.5,50), BackgroundTransparency=1})
+
+local function addLog(text,color)
+    mk("TextLabel",{Parent=logFrame, Size=UDim2.new(1,0,0,20), BackgroundTransparency=1, Text=text, Font=Enum.Font.Code, TextSize=16, TextColor3=color or Color3.fromRGB(200,200,200), TextXAlignment=Enum.TextXAlignment.Left})
+end
+
+-- Mô phỏng load %
+local progress = 0
+local logs = {"Connecting to Steal A Brainrot...","Checking server capacity...","Preparing modules...","Almost done..."}
+local conn
+conn = RunService.Heartbeat:Connect(function()
+    if progress < 100 then
+        progress = math.min(100, progress + math.random(2,6))
+        percentLabel.Text = tostring(progress).."%"
+        if math.random() < 0.15 then
+            local msg = logs[math.random(1,#logs)]
+            addLog(("[%s] %s"):format(os.date("%H:%M:%S"), msg))
+        end
+    end
+end)
+
+-- Khi % load đầy, teleport
+spawn(function()
+    while progress < 100 do wait(0.05) end
+    wait(0.3)
+    local canTeleport = (#Players:GetPlayers() <= SAFE_THRESHOLD)
+    if canTeleport then
+        addLog("Teleporting now...", Color3.fromRGB(50,220,120))
+    else
+        addLog("Teleporting Now.........", Color3.fromRGB(255,200,0))
+    end
+    wait(0.6)
+    local ok, err = pcall(function()
+        TeleportService:Teleport(TARGET_PLACE_ID, player)
+    end)
+    if not ok then addLog("Teleport failed: "..tostring(err), Color3.fromRGB(220,60,60)) end
+end)
