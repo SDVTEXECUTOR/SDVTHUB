@@ -1,0 +1,41 @@
+-- SDVT SAB #update - Rayfield menu standalone
+local success, Rayfield = pcall(function()
+    return loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+end)
+if not success or not Rayfield then
+    warn("Không tải được Rayfield.")
+    return
+end
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local playerName = (player and (player.DisplayName ~= "" and player.DisplayName or player.Name)) or "Player"
+
+local ConfigFolder, ConfigFileName = "SDVT_SAB_Menu","SDVT_SAB_Config"
+
+local Window = Rayfield:CreateWindow({
+    Name = "SDVT SAB #update",
+    LoadingTitle = "SDVT SAB",
+    LoadingSubtitle = "Menu cập nhật",
+    ConfigurationSaving={Enabled=true, FolderName=ConfigFolder, FileName=ConfigFileName},
+    Discord={Enabled=false},
+})
+
+local InfoTab = Window:CreateTab("Info")
+local InfoSection = InfoTab:CreateSection("Giới thiệu & Người chơi")
+InfoSection:CreateLabel("Tên script: SDVT SAB #update")
+InfoSection:CreateLabel("Tên người chơi: "..playerName)
+
+-- Auto load config
+spawn(function()
+    pcall(function()
+        if Rayfield.LoadConfiguration then
+            Rayfield:LoadConfiguration(ConfigFileName)
+        elseif Rayfield.LoadConfig then
+            Rayfield:LoadConfig(ConfigFileName)
+        end
+        Rayfield:Notify({Title="Config Loaded", Content="Tự động load: "..ConfigFolder.."/"..ConfigFileName, Duration=4})
+    end)
+end)
+
+Rayfield:Notify({Title="SDVT SAB", Content="Menu đã sẵn sàng. Config SDVT_SAB_Config auto kích hoạt.", Duration=4})
