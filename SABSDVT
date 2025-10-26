@@ -1,0 +1,80 @@
+-- SDVT SAB #update - Rayfield menu standalone
+local success, Rayfield = pcall(function()
+    return loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+end)
+if not success or not Rayfield then
+    warn("Không tải được Rayfield.")
+    return
+end
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local playerName = (player and (player.DisplayName ~= "" and player.DisplayName or player.Name)) or "Player"
+
+local ConfigFileName = "SDVT_SAB_Config"  -- chỉ dùng 1 config
+
+local Window = Rayfield:CreateWindow({
+    Name = "SDVT SAB #update",
+    LoadingTitle = "SDVT SAB",
+    LoadingSubtitle = "Menu cập nhật",
+    ConfigurationSaving = {
+        Enabled = true,
+        FileName = ConfigFileName
+    },
+    Discord = {Enabled=false},
+})
+
+-- Tab 1: Info
+local InfoTab
+pcall(function() InfoTab = Window:CreateTab("Info") end)
+local InfoSection
+pcall(function() InfoSection = InfoTab:CreateSection("Giới thiệu & Người chơi") end)
+pcall(function() InfoSection:CreateLabel("Tên script: SDVT SAB #update") end)
+pcall(function() InfoSection:CreateLabel("Tên người chơi: "..playerName) end)
+
+-- Tab 2: Main
+local MainTab
+pcall(function() MainTab = Window:CreateTab("Main") end)
+local MainSection
+pcall(function() MainSection = MainTab:CreateSection("Coming Soon") end)
+local countdownLabel
+pcall(function() countdownLabel = MainSection:CreateLabel("……COMING SOON…….") end)
+
+-- Function update countdown
+spawn(function()
+    pcall(function()
+        local targetTime = os.time{year=2025, month=10, day=27, hour=12, min=0, sec=0}
+        while true do
+            local now = os.time()
+            local diff = targetTime - now
+            if diff <= 0 then
+                countdownLabel.Text = "Đã đến thời gian!"
+                break
+            else
+                local days = math.floor(diff / 86400)
+                local hours = math.floor((diff % 86400) / 3600)
+                local minutes = math.floor((diff % 3600) / 60)
+                local seconds = diff % 60
+                countdownLabel.Text = string.format("Còn %d ngày %02d:%02d:%02d", days, hours, minutes, seconds)
+            end
+            wait(1)
+        end
+    end)
+end)
+
+-- Auto load config
+spawn(function()
+    pcall(function()
+        if Rayfield.LoadConfiguration then
+            Rayfield:LoadConfiguration(ConfigFileName)
+        elseif Rayfield.LoadConfig then
+            Rayfield:LoadConfig(ConfigFileName)
+        end
+        Rayfield:Notify({Title="Config Loaded", Content="Tự động load: "..ConfigFileName, Duration=4})
+    end)
+end)
+
+-- Menu ready notify
+pcall(function()
+    Rayfield:Notify({Title="SDVT SAB", Content="Menu đã sẵn sàng. Config SDVT_SAB_Config auto kích hoạt.", Duration=4})
+end)
