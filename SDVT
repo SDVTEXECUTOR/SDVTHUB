@@ -1,11 +1,16 @@
--- SDVT SAB: Check PlaceId + auto load menu script nếu đúng
+-- SDVT SAB: Full Check + Vote Yes + Overlay % Load + Teleport low-pop server + Auto Load Menu
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
 local player = Players.LocalPlayer
 
-local TARGET_PLACE_ID = 126884695634066
+local TARGET_PLACE_ID = 126884695634066 -- Steal A Brainrot
 local MENU_SCRIPT_URL = 'https://raw.githubusercontent.com/SDVTEXECUTOR/SDVTHUB/refs/heads/main/SAB.Ver1'
+local MIN_PLAYERS = 1
+local MAX_PLAYERS = 3
+local PAGE_LIMIT = 10
+local limitPerPage = 100
 
 -- Utility function tạo UI
 local function mk(class, props)
@@ -14,8 +19,8 @@ local function mk(class, props)
     return obj
 end
 
--- Overlay
-local screenGui = mk("ScreenGui",{Parent=player:WaitForChild("PlayerGui"), Name="SafeLoaderOverlay", ResetOnSpawn=false})
+-- Overlay UI
+local screenGui = mk("ScreenGui",{Parent=player:WaitForChild("PlayerGui"), Name="SDVTOverlay", ResetOnSpawn=false})
 local bg = mk("Frame",{Parent=screenGui, BackgroundColor3=Color3.new(0,0,0), Size=UDim2.new(1,0,1,0)})
 local loaderArea = mk("Frame",{Parent=bg, Size=UDim2.new(0,220,0,220), Position=UDim2.new(0.5,-110,0.5,-110), BackgroundTransparency=1})
 local percentLabel = mk("TextLabel",{Parent=loaderArea, Size=UDim2.new(1,0,0,28), Position=UDim2.new(0,0,1,-34), BackgroundTransparency=1, Font=Enum.Font.SourceSansBold, TextSize=22, TextColor3=Color3.fromRGB(255,255,255), Text="0%"})
@@ -26,7 +31,7 @@ local function addLog(text,color)
     mk("TextLabel",{Parent=logFrame, Size=UDim2.new(1,0,0,20), BackgroundTransparency=1, Text=text, Font=Enum.Font.Code, TextSize=16, TextColor3=color or Color3.fromRGB(200,200,200), TextXAlignment=Enum.TextXAlignment.Left})
 end
 
--- Loading simulation
+-- Simulate loading %
 local progress = 0
 local logs = {"Initializing...","Connecting...","Checking PlaceId...","Preparing modules...","Running checks...","Finalizing..."}
 local conn
@@ -41,31 +46,65 @@ conn = RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Evaluate PlaceId after load
+-- Roblox server query
+local function queryServerPage(placeId, cursor)
+    local url = ("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=%d"):format(tostring(placeId), limitPerPage)
+    if cursor and cursor~="" then url = url .. "&cursor="..HttpService:UrlEncode(cursor) end
+    local ok,res = pcall(function() return HttpService:GetAsync(url,true) end)
+    if not ok then return false,res end
+    local decoded
+    ok,decoded = pcall(function() return HttpService:JSONDecode(res) end)
+    if not ok then return false,decoded end
+    return true,decoded
+end
+
+local function findLowPopServer()
+    local nextCursor=nil
+    for page=1,PAGE_LIMIT do
+        local ok,data = queryServerPage(TARGET_PLACE_ID,nextCursor)
+        if not ok then return false,nil,data end
+        if data and data.data then
+            for _,entry in ipairs(data.data) do
+                local playing = tonumber(entry.playing) or 0
+                if playing>=MIN_PLAYERS and playing<=MAX_PLAYERS then
+                    return true,tostring(entry.id)
+                end
+            end
+        end
+        nextCursor = data.nextPageCursor
+        if not nextCursor then break end
+        wait(0.15)
+    end
+    return false,nil,"No suitable server found"
+end
+
+local function teleportToInstance(instanceId)
+    local ok,err = pcall(function()
+        TeleportService:TeleportToPlaceInstance(TARGET_PLACE_ID,instanceId,player)
+    end)
+    return ok,err
+end
+
+-- Check PlaceId after progress
 spawn(function()
     while progress < 100 do wait(0.09) end
     wait(0.25)
     local current = game.PlaceId
-    local match = (tostring(current) == tostring(TARGET_PLACE_ID))
+    local match = (tostring(current)==tostring(TARGET_PLACE_ID))
     if match then
         statusLabel.TextColor3 = Color3.fromRGB(50,220,120)
         statusLabel.Text = "V"
         addLog("PlaceId matches target. Loading menu script...")
         wait(0.6)
-        -- Load menu script
-        local success, err = pcall(function()
-            loadstring(game:HttpGet(MENU_SCRIPT_URL))()
-        end)
-        if not success then
-            addLog("Lỗi load menu script: "..tostring(err), Color3.fromRGB(220,60,60))
-        end
-        screenGui:Destroy() -- hide loader overlay
+        local success,err = pcall(function() loadstring(game:HttpGet(MENU_SCRIPT_URL))() end)
+        if not success then addLog("Lỗi load menu script: "..tostring(err),Color3.fromRGB(220,60,60)) end
+        screenGui:Destroy()
     else
         statusLabel.TextColor3 = Color3.fromRGB(220,60,60)
         statusLabel.Text = "X"
         addLog(("PlaceId mismatch (%s != %s)"):format(current,TARGET_PLACE_ID))
 
-        -- Prompt Yes/No buttons
+        -- Yes/No prompt
         local prompt = mk("Frame",{Parent=bg, Size=UDim2.new(0,420,0,86), Position=UDim2.new(0.5,-210,0.5,120), BackgroundColor3=Color3.fromRGB(20,20,22)})
         mk("TextLabel",{Parent=prompt, Size=UDim2.new(1,0,0,32), Position=UDim2.new(0,0,6), BackgroundTransparency=1, Text="PlaceId không trùng. Bạn có muốn join game này?", Font=Enum.Font.SourceSans, TextSize=18, TextColor3=Color3.fromRGB(230,230,230)})
         local btnYes = mk("TextButton",{Parent=prompt, Size=UDim2.new(0,120,0,36), Position=UDim2.new(0.5,-140,0,44), BackgroundColor3=Color3.fromRGB(0,160,85), Text="Yes", Font=Enum.Font.SourceSansBold, TextSize=18, TextColor3=Color3.fromRGB(255,255,255)})
@@ -75,11 +114,24 @@ spawn(function()
             addLog("User chose NO. Script terminated.")
             screenGui:Destroy()
         end)
+
         btnYes.MouseButton1Click:Connect(function()
-            addLog("User chose YES. Attempting to teleport...")
+            addLog("User chose YES. Searching low-pop server...")
             spawn(function()
-                local ok, err = pcall(function() TeleportService:Teleport(TARGET_PLACE_ID,player) end)
-                if not ok then addLog("Teleport failed: "..tostring(err)) end
+                local ok,instanceId,info = findLowPopServer()
+                if ok and instanceId then
+                    addLog("Found low-pop server: "..tostring(info or instanceId))
+                    while progress<90 do progress=progress+1; percentLabel.Text=tostring(progress).."%"; wait(0.02) end
+                    local tOk,tErr = teleportToInstance(instanceId)
+                    if not tOk then
+                        addLog("TeleportToPlaceInstance failed: "..tostring(tErr)..", fallback teleporting...")
+                        pcall(function() TeleportService:Teleport(TARGET_PLACE_ID,player) end)
+                    end
+                else
+                    addLog("No low-pop server found, fallback teleport...",Color3.fromRGB(255,200,0))
+                    while progress<100 do progress=progress+3; percentLabel.Text=tostring(progress).."%"; wait(0.02) end
+                    pcall(function() TeleportService:Teleport(TARGET_PLACE_ID,player) end)
+                end
             end)
         end)
     end
