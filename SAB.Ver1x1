@@ -14,45 +14,79 @@ local playerName = (player and (player.DisplayName ~= "" and player.DisplayName 
 local ConfigFolder, ConfigFileName = "SDVT_SAB_Menu","SDVT_SAB_Config"
 
 local Window = Rayfield:CreateWindow({
-    Name = "SDVT SAB #update",
+    Name = "SDVT SAB #1x1",
     LoadingTitle = "SDVT SAB",
     LoadingSubtitle = "Menu cập nhật",
     ConfigurationSaving={Enabled=true, FolderName=ConfigFolder, FileName=ConfigFileName},
     Discord={Enabled=false},
 })
 
--- Tab 1: Info
 local InfoTab = Window:CreateTab("Info")
 local InfoSection = InfoTab:CreateSection("Giới thiệu & Người chơi")
 InfoSection:CreateLabel("Tên script: SDVT SAB #update")
 InfoSection:CreateLabel("Tên người chơi: "..playerName)
 
--- Tab 2: Main
+-- Tab 2: Main với đếm ngược
 local MainTab = Window:CreateTab("Main")
-local MainSection = MainTab:CreateSection("Coming Soon")
-local countdownLabel = MainSection:CreateLabel("……COMING SOON…….")
+local MainSection = MainTab:CreateSection("Cập nhật sắp tới")
 
--- Function update countdown
-local function updateCountdown()
-    local targetTime = os.time{year=2025, month=10, day=27, hour=12, min=0, sec=0}
-    while true do
-        local now = os.time()
-        local diff = targetTime - now
-        if diff <= 0 then
-            countdownLabel:Set("Đã đến thời gian!")
-            break
-        else
-            local days = math.floor(diff / 86400)
-            local hours = math.floor((diff % 86400) / 3600)
-            local minutes = math.floor((diff % 3600) / 60)
-            local seconds = diff % 60
-            countdownLabel:Set(string.format("Còn %d ngày %02d:%02d:%02d", days, hours, minutes, seconds))
-        end
-        wait(1)
+MainSection:CreateLabel(".......COMING SOON.............")
+
+-- Tạo Paragraph để hiển thị thời gian đếm ngược
+local CountdownParagraph = MainSection:CreateParagraph({
+    Title = "Thời gian còn lại đến cập nhật:",
+    Content = "Đang tính toán..."
+})
+
+-- Mốc thời gian: 12:00 trưa ngày 27/10/2025 (UTC+7)
+local targetTimestamp = os.time({
+    year = 2025,
+    month = 10,
+    day = 27,
+    hour = 12,
+    min = 0,
+    sec = 0,
+    isdst = false
+})
+
+-- Hàm định dạng thời gian còn lại
+local function formatCountdown(seconds)
+    if seconds <= 0 then
+        return "ĐÃ ĐẾN THỜI GIAN CẬP NHẬT!"
     end
+
+    local days = math.floor(seconds / 86400)
+    seconds = seconds % 86400
+    local hours = math.floor(seconds / 3600)
+    seconds = seconds % 3600
+    local minutes = math.floor(seconds / 60)
+    local secs = seconds % 60
+
+    return string.format("%d ngày %02d:%02d:%02d", days, hours, minutes, secs)
 end
 
-spawn(updateCountdown)
+-- Bắt đầu đếm ngược
+spawn(function()
+    while true do
+        local now = os.time()
+        local remaining = targetTimestamp - now
+        local displayText = formatCountdown(remaining)
+
+        -- Cập nhật nội dung
+        pcall(function()
+            CountdownParagraph:Set({
+                Title = "Thời gian còn lại đến cập nhật:",
+                Content = displayText
+            })
+        end)
+
+        if remaining <= 0 then
+            break
+        end
+
+        wait(1) -- Cập nhật mỗi giây
+    end
+end)
 
 -- Auto load config
 spawn(function()
